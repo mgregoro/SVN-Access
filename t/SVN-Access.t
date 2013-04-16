@@ -191,6 +191,9 @@ print LTEST <<'CHUMBA';
 folks = bob, 
  ed,
 	frank
+missing=not
+  
+# the line above contains some whitespace
 foo=bar # not allowed, baz
 # see libsvn_subr/config_file.c:svn_config__parse_file()
 [/]
@@ -211,6 +214,11 @@ is($m[2], "frank", "Make sure frank is at the end of the list");
 is($#m, 1, "Make sure group has 2 members");
 is($m[0], "bar # not allowed", "make sure comment is appended as svn does");
 is($m[1], "baz", "make sure next entry is right");
+
+# check for handling lines with whitespace... they should not get treated as
+# line continuations
+is(ref $acl->group('missing'), "SVN::Access::Group",
+   "Group before bogus line continuation should be present");
 
 unlink('line_cont.conf');
 

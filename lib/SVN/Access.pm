@@ -3,11 +3,13 @@ package SVN::Access;
 use SVN::Access::Group;
 use SVN::Access::Resource;
 
+use open ':encoding(utf8)';
+
 use 5.006001;
 use strict;
 use warnings;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 sub new {
     my ($class, %attr) = @_;
@@ -50,8 +52,7 @@ sub parse_acl {
         my $pos = tell(ACL);
         my $nextline = <ACL>;
         seek(ACL, $pos, 0); # rewind the filehandle to where we were.
-
-        if ($nextline && $nextline =~ /^[ \t]+/) {
+        if ($nextline && $nextline =~ /^[ \t]+\S/) {
             next;
         }
 
@@ -121,14 +122,20 @@ sub verify_acl {
 }
 
 sub write_acl {
-    my ($self) = @_;
+    my ($self, $out) = @_;
 
     # verify the ACL has no errors before writing it out
     if (my $error = $self->verify_acl) {
         die "Error found in ACL:\n$error\n";
     }
 
-    open (ACL, '>', $self->{acl_file}) or warn "Can't open ACL file " . $self->{acl_file} . " for writing: $!\n";
+    if (ref \$out eq "GLOB" or ref $out) {
+        *ACL = $out;
+    }
+    else {
+        $out = $self->{acl_file} unless $out;
+        open (ACL, '>', $out) or warn "Can't open ACL file " . $out . " for writing: $!\n";
+    }
     
     # aliases now supported!
     if (scalar(keys %{$self->aliases})) {
