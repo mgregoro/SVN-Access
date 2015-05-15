@@ -1,4 +1,4 @@
-SVN-Access version 0.09
+SVN-Access version 0.10
 ====================
 
 DESCRIPTION
@@ -21,7 +21,7 @@ COPYRIGHT AND LICENCE
 
 Put the correct copyright and licence information here.
 
-Copyright (C) 2013 by Michael Gregorowicz 
+Copyright (C) 2013-2015 by Michael Gregorowicz 
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.8 or,

@@ -9,7 +9,7 @@ use 5.006001;
 use strict;
 use warnings;
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 sub new {
     my ($class, %attr) = @_;
@@ -70,11 +70,11 @@ sub parse_acl {
             my ($k, $v) = $statement =~ /^(.+?)\s*=\s*(.*?)$/;
 
             # if the previous split didn't work, there's a syntax error
-            if (not $k)
-            {
+            unless ($k) {
                 warn "Unrecognized line $statement\n";
                 next;
             }
+
             if ($current_resource eq "groups") {
                 # this is a group
                 $self->add_group($k, split(/\s*,\s*/, $v));
@@ -365,19 +365,19 @@ sub group {
 sub resolve {
     my $self = shift;
     my @res;
+
     foreach my $e (@_) {
         if ($e =~ /^\@(.+)/) {
             push @res, map $self->resolve($_), $self->group($1)->members()
                 if $self->group($1);
-        }
-        elsif ($e =~ /^\&(.+)/) {
+        } elsif ($e =~ /^\&(.+)/) {
             push @res, map $self->resolve($_), $self->alias($1)
-                if  $self->alias($1);
-        }
-        else {
+                if $self->alias($1);
+        } else {
             push @res, $e;
         }
     }
+
     return @res;
 }
 
