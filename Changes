@@ -28,3 +28,9 @@ Revision history for Perl extension SVN::Access:
 
 0.08
     - implemented code that passes Trent's tests (line continuations)
+
+0.10
+    - merged Trent's patch, contained new resolve() method and docs
+    - added a 'pedantic' option
+    - improved checking for poorly formatted AuthZ files
+

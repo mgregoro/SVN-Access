@@ -6,7 +6,7 @@ use warnings;
 
 use Tie::IxHash;
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 sub new {
     my ($class, %attr) = @_;

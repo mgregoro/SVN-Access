@@ -195,6 +195,7 @@ missing=not
   
 # the line above contains some whitespace
 foo=bar # not allowed, baz
+@tempt = incorrect
 # see libsvn_subr/config_file.c:svn_config__parse_file()
 [/]
 @folks = rw
@@ -203,6 +204,7 @@ CHUMBA
 #/];# (keep emacs perl-mode happy)
 close(LTEST);
 
+# load in default mode
 $acl = SVN::Access->new(acl_file => 'line_cont.conf');
 ok(defined($acl), "Make sure we can parse file with line continuations");
 my @m = $acl->group('folks')->members;
@@ -210,6 +212,22 @@ is($#m, 2, "Make sure group has three members, via continuations");
 is($m[2], "frank", "Make sure frank is at the end of the list");
 
 # check the trailing comment
+@m = $acl->group('foo')->members;
+is($#m, 0, "Make sure group has 1 members due to trailing comment");
+is($m[0], "bar", "make sure trailing comment was stripped");
+
+# check the incorrect group
+@m = $acl->group('tempt')->members;
+is($#m, 0, "Make sure group with @ is renamed and has one member");
+is($m[0], "incorrect", "Make sure that group has correct member");
+
+# no reload in pedantic mode and make sure the @ got left on the group
+$acl = SVN::Access->new(acl_file => 'line_cont.conf', pedantic => 1);
+@m = $acl->group('@tempt')->members;
+is($#m, 0, "Make sure group with @ has the name preserved (as svn allows)");
+is($m[0], "incorrect", "Make sure group with @ has proper membership");
+
+# check for trailing comment handling
 @m = $acl->group('foo')->members;
 is($#m, 1, "Make sure group has 2 members");
 is($m[0], "bar # not allowed", "make sure comment is appended as svn does");
@@ -221,4 +239,61 @@ is(ref $acl->group('missing'), "SVN::Access::Group",
    "Group before bogus line continuation should be present");
 
 unlink('line_cont.conf');
+
+# tests for syntax errors
+open(STEST, '>', 'syntax-err.conf');
+print STEST <<'CHUMBA';
+[groups]
+broken_line = one,
+two
+
+[]
+ugh = foo
+
+[/]
+broken_line = w
+
+CHUMBA
+#/];# (keep emacs perl-mode happy)
+close(STEST);
+
+# capture errors
+my @errs;
+$SIG{__WARN__} = sub { push @errs, @_; };
+
+$acl = eval { SVN::Access->new(acl_file => 'syntax-err.conf'); };
+ok(defined($acl), "Make sure we can parse file with syntax errors");
+is($#errs, 1, "Make sure we got the right number of errors");
+ok($errs[0] =~ /^Unrecognized line two\s*/, "Make sure we detected the broken line syntax error");
+ok($errs[1] =~ /^Unrecognized line \[\]/, "Make sure we catch the bogus section divider");
+
+unlink('syntax-err.conf');
+
+# tests for complex expansions
+open(STEST, '>', 'expn.conf');
+print STEST <<'CHUMBA';
+[groups]
+alicorn = &twilight
+earth = applejack
+unicorn = rarity
+pony = @alicorn, @earth, @unicorn
+
+[aliases]
+twilight = twilight_sparkle
+
+[/]
+pony = rw
+
+CHUMBA
+#/];# (keep emacs perl-mode happy)
+close(STEST);
+
+$acl = eval { SVN::Access->new(acl_file => 'expn.conf'); };
+ok(defined($acl), "Make sure we can parse complex file");
+@g = $acl->group("pony")->members();
+is($g[0], '@alicorn', "Make sure group returns groups unexpanded");
+@g = $acl->resolve('@pony');
+is($g[0], 'twilight_sparkle', 'Make sure resolve expands groups and aliases');
+
+unlink('expn.conf');
 

@@ -9,7 +9,7 @@ use 5.006001;
 use strict;
 use warnings;
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 sub new {
     my ($class, %attr) = @_;
@@ -36,6 +36,7 @@ sub parse_acl {
     while (my $line = <ACL>) {
         # ignore comments (properly defined)
         next if $line =~ /^#/;
+        $line =~ s/\s*#.*$// unless $self->{pedantic};
 
         # get rid of trailing whitespace.
         $line =~ s/[\s\r\n]+$//;
@@ -67,6 +68,12 @@ sub parse_acl {
         } else {
             # both groups and resources need this parsed.
             my ($k, $v) = $statement =~ /^(.+?)\s*=\s*(.*?)$/;
+
+            # if the previous split didn't work, there's a syntax error
+            unless ($k) {
+                warn "Unrecognized line $statement\n";
+                next;
+            }
 
             if ($current_resource eq "groups") {
                 # this is a group
@@ -311,7 +318,7 @@ sub add_group {
     my ($self, $group_name, @initial_members) = @_;
 
     # get rid of the @ symbol.
-    $group_name =~ s/\@//g;
+    $group_name =~ s/\@//g unless $self->{pedantic};
 
     if ($self->group($group_name)) {
         die "Can't add new group $group_name: group already exists!\n";
@@ -353,6 +360,25 @@ sub group {
         return $group if defined($group) && $group->name eq $group_name;
     }
     return undef;
+}
+
+sub resolve {
+    my $self = shift;
+    my @res;
+
+    foreach my $e (@_) {
+        if ($e =~ /^\@(.+)/) {
+            push @res, map $self->resolve($_), $self->group($1)->members()
+                if $self->group($1);
+        } elsif ($e =~ /^\&(.+)/) {
+            push @res, map $self->resolve($_), $self->alias($1)
+                if $self->alias($1);
+        } else {
+            push @res, $e;
+        }
+    }
+
+    return @res;
 }
 
 1;
@@ -551,6 +577,14 @@ Example:
   foreach my $alias (keys %{$acl->aliases}) {
     print "$alias: " . $acl->aliases->{$alias} . "\n";
   }
+
+=item B<resolve>
+
+Returns a fully resolved list of users part of the given groups and/or
+aliases.  Groups must be specified with a leading "@" and aliases with
+a leading "&", all else will be returned verbatim.  This recurses
+through all definitions to get actual user names (so groups within
+groups will be handled properly).
 
 =back
 
