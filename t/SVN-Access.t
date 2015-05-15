@@ -230,8 +230,8 @@ is($m[0], "incorrect", "Make sure group with @ has proper membership");
 # check for trailing comment handling
 @m = $acl->group('foo')->members;
 is($#m, 1, "Make sure group has 2 members");
-is($m[0], "bar # not allowed", "Make sure comment is appended as svn does");
-is($m[1], "baz", "Make sure next entry is right");
+is($m[0], "bar # not allowed", "make sure comment is appended as svn does");
+is($m[1], "baz", "make sure next entry is right");
 
 # check for handling lines with whitespace... they should not get treated as
 # line continuations
