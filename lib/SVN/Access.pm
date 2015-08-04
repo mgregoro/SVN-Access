@@ -110,6 +110,15 @@ sub verify_acl {
     if ($self->groups) {
         foreach my $group ($self->groups) {
             $groups{$group->name}++;
+            foreach my $k ($group->members) {
+                if ( $k =~ /^@(.*)/ ) {
+                    unless ( $groups{$1} ) {
+                        push(@errors, "[error] An authz rule (" . $group->name. ") refers to group '$1', which is undefined");
+                    }
+                } elsif ( $k =~ /^&(.*)/ ) {
+                        push(@errors, "[error] An authz rule (" . $group->name . ") refers to alias '$1', which is undefined");
+                }
+            }
         }
     }
 
@@ -120,6 +129,8 @@ sub verify_acl {
                     unless ( $groups{$1} ) {
                         push(@errors, "[error] An authz rule (" . $resource->name . ") refers to group '\@$1', which is undefined");
                     }
+                } elsif ( $k =~ /^&(.*)/ ) {
+                    push(@errors, "[error] An authz rule (" . $resource->name . ") refers to alias '\&$1', which is undefined");
                 }
             }
         }

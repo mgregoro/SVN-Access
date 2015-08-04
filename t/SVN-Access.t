@@ -11,6 +11,13 @@ use Test::More qw(no_plan); # replace this later.
 BEGIN { use_ok('SVN::Access') };
 
 #########################
+# make sure there are no leftovers from previous tests
+unlink('svn_access_test.conf',
+       'whitespace_at_end_test.conf',
+       'line_cont.conf',
+       'syntax-err.conf',
+       'expn.conf',
+       'undef.conf');
 
 # Insert your test code below, the Test::More module is use()ed here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
@@ -296,4 +303,32 @@ is($g[0], '@alicorn', "Make sure group returns groups unexpanded");
 is($g[0], 'twilight_sparkle', 'Make sure resolve expands groups and aliases');
 
 unlink('expn.conf');
+
+# tests undefined groups and aliases
+open(STEST, '>', 'undef.conf');
+print STEST <<'CHUMBA';
+[groups]
+broken = one, two, three, &none, @nada
+
+[/]
+@zip = rw
+&zilch = rw
+
+CHUMBA
+#/];# (keep emacs perl-mode happy)
+close(STEST);
+
+@errs = ();
+$acl = eval { SVN::Access->new(acl_file => 'undef.conf'); };
+ok(defined($acl), "Make sure we can parse a file with errors");
+is($#errs, -1, "the parser doesn't catch the errors");
+@errs = split(/\n/, $acl->verify_acl);
+is($#errs, 3, "Make sure we got the right number of verify errors");
+ok($errs[0] =~ /'none', which is undefined/, "Make sure we catch the undefined alias in group defn");
+ok($errs[1] =~ /'nada', which is undefined/, "Make sure we catch the undefined group in group defn");
+ok($errs[2] =~ /'\@zip', which is undefined/, "Make sure we catch the undefined group in resource");
+ok($errs[3] =~ /'\&zilch', which is undefined/, "Make sure we catch the undefined alias in resource");
+unlink('undef.conf');
+
+exit 0;
 
