@@ -116,7 +116,9 @@ sub verify_acl {
                         push(@errors, "[error] An authz rule (" . $group->name. ") refers to group '$1', which is undefined");
                     }
                 } elsif ( $k =~ /^&(.*)/ ) {
+                    unless ( $self->aliases->{$1} ) {
                         push(@errors, "[error] An authz rule (" . $group->name . ") refers to alias '$1', which is undefined");
+                    }
                 }
             }
         }
@@ -130,7 +132,9 @@ sub verify_acl {
                         push(@errors, "[error] An authz rule (" . $resource->name . ") refers to group '\@$1', which is undefined");
                     }
                 } elsif ( $k =~ /^&(.*)/ ) {
-                    push(@errors, "[error] An authz rule (" . $resource->name . ") refers to alias '\&$1', which is undefined");
+                    unless ( $self->aliases->{$1} ) {
+                        push(@errors, "[error] An authz rule (" . $resource->name . ") refers to alias '\&$1', which is undefined");
+                    }
                 }
             }
         }

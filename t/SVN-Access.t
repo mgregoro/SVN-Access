@@ -307,12 +307,17 @@ unlink('expn.conf');
 # tests undefined groups and aliases
 open(STEST, '>', 'undef.conf');
 print STEST <<'CHUMBA';
+[aliases]
+right = correct
+
 [groups]
-broken = one, two, three, &none, @nada
+broken = one, two, three, &none, @nada, &right
 
 [/]
 @zip = rw
 &zilch = rw
+@broken = rw
+&right = rw
 
 CHUMBA
 #/];# (keep emacs perl-mode happy)
