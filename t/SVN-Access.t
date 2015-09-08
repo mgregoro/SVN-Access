@@ -309,9 +309,13 @@ open(STEST, '>', 'undef.conf');
 print STEST <<'CHUMBA';
 [aliases]
 right = correct
+backwards = &forwards
+forwards = backwards
 
 [groups]
 broken = one, two, three, &none, @nada, &right
+outoforder = @working
+working = yes
 
 [/]
 @zip = rw

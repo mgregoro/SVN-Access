@@ -108,8 +108,11 @@ sub verify_acl {
     # Check for references to undefined groups (Thanks Jesse!)
     my (%groups, @errors);
     if ($self->groups) {
+        # gather groups first, in case there are forward refs
         foreach my $group ($self->groups) {
             $groups{$group->name}++;
+        }
+        foreach my $group ($self->groups) {
             foreach my $k ($group->members) {
                 if ( $k =~ /^@(.*)/ ) {
                     unless ( $groups{$1} ) {
