@@ -83,6 +83,9 @@ sub parse_acl {
                 $self->add_alias($k, $v);
             } else {
                 # this is a generic resource
+                unless ($v =~ /^[rw\s]*$/) {
+                    warn "Invalid character in authz rule $v\n";
+                }
                 if (my $resource = $self->resource($current_resource)) {
                     $resource->authorize($k => $v);
                 } else {

@@ -155,6 +155,8 @@ $acl->add_resource(
         mike => 'rw',
     }
 );
+# ... and make sure it was understood
+is($acl->resource('/awesomeness')->authorized->{mike}, 'rw', 'was hash param understood?');
 
 # Jesse Thompson's verify_acl tests
 $acl->add_resource('/new', '@doesntexist', 'rw');
@@ -259,6 +261,7 @@ ugh = foo
 
 [/]
 broken_line = w
+foo = r@foobar = rw
 
 CHUMBA
 #/];# (keep emacs perl-mode happy)
@@ -270,9 +273,10 @@ $SIG{__WARN__} = sub { push @errs, @_; };
 
 $acl = eval { SVN::Access->new(acl_file => 'syntax-err.conf'); };
 ok(defined($acl), "Make sure we can parse file with syntax errors");
-is($#errs, 1, "Make sure we got the right number of errors");
+is($#errs, 2, "Make sure we got the right number of errors");
 ok($errs[0] =~ /^Unrecognized line two\s*/, "Make sure we detected the broken line syntax error");
 ok($errs[1] =~ /^Unrecognized line \[\]/, "Make sure we catch the bogus section divider");
+ok($errs[2] =~ /^Invalid character in authz rule/, "Make sure we catch the syntax error in rw spec");
 
 unlink('syntax-err.conf');
 
