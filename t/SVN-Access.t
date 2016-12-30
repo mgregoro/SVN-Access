@@ -339,5 +339,49 @@ ok($errs[2] =~ /'\@zip', which is undefined/, "Make sure we catch the undefined 
 ok($errs[3] =~ /'\&zilch', which is undefined/, "Make sure we catch the undefined alias in resource");
 unlink('undef.conf');
 
-exit 0;
+# prevent recursion loops
+open(STEST, '>', 'loop.conf');
+print STEST <<'CHUMBA';
+[aliases]
 
+[groups]
+one = two, three, @four
+four = five, six, @one
+
+direct = @direct, foo
+
+[/]
+@one = r
+@four = rw
+
+CHUMBA
+#/];# (keep emacs perl-mode happy)
+close(STEST);
+
+@errs = ();
+$acl = eval { SVN::Access->new(acl_file => 'loop.conf'); };
+ok(defined($acl), "Make sure we can parse a file with loops");
+is($#errs, -1, "the parser doesn't catch the errors");
+
+# verify doesn't check for loops... yet
+@errs = split(/\n/, $acl->verify_acl);
+is($#errs, 2, "Make sure we got the right number of verify errors");
+
+@errs = ();
+my @g = $acl->resolve('@one');
+is($#errs, 0, "One error from loop in group one");
+ok($errs[0] =~ /^Error: group loop detected \@one/);
+
+@errs = ();
+@g = $acl->resolve('@four');
+is($#errs, 0, "One error from loop in group four");
+ok($errs[0] =~ /^Error: group loop detected \@four/);
+
+@errs = ();
+@g = $acl->resolve('@direct');
+is($#errs, 0, "One error from loop in group direct");
+ok($errs[0] =~ /^Error: group loop detected \@direct/);
+
+unlink('loop.conf');
+
+exit 0;
