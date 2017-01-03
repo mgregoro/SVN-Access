@@ -11,6 +11,13 @@ use Test::More qw(no_plan); # replace this later.
 BEGIN { use_ok('SVN::Access') };
 
 #########################
+# make sure there are no leftovers from previous tests
+unlink('svn_access_test.conf',
+       'whitespace_at_end_test.conf',
+       'line_cont.conf',
+       'syntax-err.conf',
+       'expn.conf',
+       'undef.conf');
 
 # Insert your test code below, the Test::More module is use()ed here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
@@ -148,6 +155,8 @@ $acl->add_resource(
         mike => 'rw',
     }
 );
+# ... and make sure it was understood
+is($acl->resource('/awesomeness')->authorized->{mike}, 'rw', 'was hash param understood?');
 
 # Jesse Thompson's verify_acl tests
 $acl->add_resource('/new', '@doesntexist', 'rw');
@@ -252,6 +261,7 @@ ugh = foo
 
 [/]
 broken_line = w
+foo = r@foobar = rw
 
 CHUMBA
 #/];# (keep emacs perl-mode happy)
@@ -263,9 +273,10 @@ $SIG{__WARN__} = sub { push @errs, @_; };
 
 $acl = eval { SVN::Access->new(acl_file => 'syntax-err.conf'); };
 ok(defined($acl), "Make sure we can parse file with syntax errors");
-is($#errs, 1, "Make sure we got the right number of errors");
+is($#errs, 2, "Make sure we got the right number of errors");
 ok($errs[0] =~ /^Unrecognized line two\s*/, "Make sure we detected the broken line syntax error");
 ok($errs[1] =~ /^Unrecognized line \[\]/, "Make sure we catch the bogus section divider");
+ok($errs[2] =~ /^Invalid character in authz rule/, "Make sure we catch the syntax error in rw spec");
 
 unlink('syntax-err.conf');
 
@@ -297,3 +308,84 @@ is($g[0], 'twilight_sparkle', 'Make sure resolve expands groups and aliases');
 
 unlink('expn.conf');
 
+# tests undefined groups and aliases
+open(STEST, '>', 'undef.conf');
+print STEST <<'CHUMBA';
+[aliases]
+right = correct
+backwards = &forwards
+forwards = backwards
+
+[groups]
+broken = one, two, three, &none, @nada, &right
+outoforder = @working
+working = yes
+
+[/]
+@zip = rw
+&zilch = rw
+@broken = rw
+&right = rw
+
+CHUMBA
+#/];# (keep emacs perl-mode happy)
+close(STEST);
+
+@errs = ();
+$acl = eval { SVN::Access->new(acl_file => 'undef.conf'); };
+ok(defined($acl), "Make sure we can parse a file with errors");
+is($#errs, -1, "the parser doesn't catch the errors");
+@errs = split(/\n/, $acl->verify_acl);
+is($#errs, 3, "Make sure we got the right number of verify errors");
+ok($errs[0] =~ /'none', which is undefined/, "Make sure we catch the undefined alias in group defn");
+ok($errs[1] =~ /'nada', which is undefined/, "Make sure we catch the undefined group in group defn");
+ok($errs[2] =~ /'\@zip', which is undefined/, "Make sure we catch the undefined group in resource");
+ok($errs[3] =~ /'\&zilch', which is undefined/, "Make sure we catch the undefined alias in resource");
+unlink('undef.conf');
+
+# prevent recursion loops
+open(STEST, '>', 'loop.conf');
+print STEST <<'CHUMBA';
+[aliases]
+
+[groups]
+one = two, three, @four
+four = five, six, @one
+
+direct = @direct, foo
+
+[/]
+@one = r
+@four = rw
+
+CHUMBA
+#/];# (keep emacs perl-mode happy)
+close(STEST);
+
+@errs = ();
+$acl = eval { SVN::Access->new(acl_file => 'loop.conf'); };
+ok(defined($acl), "Make sure we can parse a file with loops");
+is($#errs, -1, "the parser doesn't catch the errors");
+
+# verify doesn't check for loops... yet
+@errs = split(/\n/, $acl->verify_acl);
+is($#errs, 2, "Make sure we got the right number of verify errors");
+
+@errs = ();
+my @g = $acl->resolve('@one');
+is($#errs, 0, "One error from loop in group one");
+ok($errs[0] =~ /^Error: group loop detected \@one/);
+
+@errs = ();
+@g = $acl->resolve('@four');
+is($#errs, 0, "One error from loop in group four");
+ok($errs[0] =~ /^Error: group loop detected \@four/);
+
+@errs = ();
+@g = $acl->resolve('@direct');
+is($#errs, 0, "One error from loop in group direct");
+ok($errs[0] =~ /^Error: group loop detected \@direct/);
+
+unlink('loop.conf');
+
+exit 0;

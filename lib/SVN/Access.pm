@@ -83,6 +83,9 @@ sub parse_acl {
                 $self->add_alias($k, $v);
             } else {
                 # this is a generic resource
+                unless ($v =~ /^[rw\s]*$/) {
+                    warn "Invalid character in authz rule $v\n";
+                }
                 if (my $resource = $self->resource($current_resource)) {
                     $resource->authorize($k => $v);
                 } else {
@@ -108,8 +111,25 @@ sub verify_acl {
     # Check for references to undefined groups (Thanks Jesse!)
     my (%groups, @errors);
     if ($self->groups) {
+        # gather groups first, in case there are forward refs
         foreach my $group ($self->groups) {
             $groups{$group->name}++;
+            # check for loops
+            local $SIG{__WARN__} = sub { push @errors, @_; };
+            my @g = $self->resolve('@'.$group->name);
+        }
+        foreach my $group ($self->groups) {
+            foreach my $k ($group->members) {
+                if ( $k =~ /^@(.*)/ ) {
+                    unless ( $groups{$1} ) {
+                        push(@errors, "[error] An authz rule (" . $group->name. ") refers to group '$1', which is undefined");
+                    }
+                } elsif ( $k =~ /^&(.*)/ ) {
+                    unless ( $self->aliases->{$1} ) {
+                        push(@errors, "[error] An authz rule (" . $group->name . ") refers to alias '$1', which is undefined");
+                    }
+                }
+            }
         }
     }
 
@@ -120,11 +140,16 @@ sub verify_acl {
                     unless ( $groups{$1} ) {
                         push(@errors, "[error] An authz rule (" . $resource->name . ") refers to group '\@$1', which is undefined");
                     }
+                } elsif ( $k =~ /^&(.*)/ ) {
+                    unless ( $self->aliases->{$1} ) {
+                        push(@errors, "[error] An authz rule (" . $resource->name . ") refers to alias '\&$1', which is undefined");
+                    }
                 }
             }
         }
     }
 
+    chomp @errors;
     return scalar(@errors) ? join("\n", @errors) : undef;
 }
 
@@ -365,11 +390,20 @@ sub group {
 sub resolve {
     my $self = shift;
     my @res;
+    my $seen = (ref $_[$#_] eq "ARRAY" ? pop @_ : []);
 
     foreach my $e (@_) {
         if ($e =~ /^\@(.+)/) {
-            push @res, map $self->resolve($_), $self->group($1)->members()
+            # check for loops
+            if (grep($_ eq $e, @$seen)) {
+                warn "Error: group loop detected ",join(", ", @$seen, $e),"\n";
+                return undef;
+            }
+            push @$seen, $e;
+            push @res, map $self->resolve($_, $seen),
+                           $self->group($1)->members()
                 if $self->group($1);
+            pop @$seen;
         } elsif ($e =~ /^\&(.+)/) {
             push @res, map $self->resolve($_), $self->alias($1)
                 if $self->alias($1);
