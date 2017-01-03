@@ -34,3 +34,9 @@ Revision history for Perl extension SVN::Access:
     - added a 'pedantic' option
     - improved checking for poorly formatted AuthZ files
 
+0.11
+    - merged Trent's patch, enhanced error detection and validity testing including
+      fixes for infinite recursion, undefined groups, and out-of-order group 
+      definitions.
+    - fixed hashref-based resource adding; been broken since Tie::IxHash was 
+      introduced in version 0.05

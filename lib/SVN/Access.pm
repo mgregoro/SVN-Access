@@ -9,7 +9,7 @@ use 5.006001;
 use strict;
 use warnings;
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 sub new {
     my ($class, %attr) = @_;
@@ -116,7 +116,7 @@ sub verify_acl {
             $groups{$group->name}++;
             # check for loops
             local $SIG{__WARN__} = sub { push @errors, @_; };
-            my @g = $self->resolve('@'.$group->name);
+            my @g = $self->resolve('@' . $group->name);
         }
         foreach my $group ($self->groups) {
             foreach my $k ($group->members) {
@@ -299,14 +299,30 @@ sub add_resource {
         $resource_name = shift(@access);
     }
     
+    my @acl;
+    foreach my $entry (@access) {
+        next if $entry eq "authorized";
+        
+        if (ref($entry) eq "HASH") {
+            # unpack the hashref to a list.
+            foreach my $key (keys %$entry) {
+                push(@acl, $key, $entry->{$key});
+            }
+        } elsif (ref($entry) eq "ARRAY") {
+            push(@acl, @$entry);
+        } else {
+            push(@acl, $entry);
+        }
+    }
+    
     if ($self->resource($resource_name)) {
         die "Can't add new resource $resource_name: resource already exists!\n";
     } elsif ($resource_name !~ /^(?:\S+\:)?\/.*$/) { # Thanks Matt
         die "Invalid resource format in $resource_name! (format 'repo:/path')!\n";
     } else {
         my $resource = SVN::Access::Resource->new(
-            name        =>      $resource_name,
-            authorized  =>      \@access,
+            name => $resource_name,
+            authorized => \@acl,
         );
         push(@{$self->{acl}->{resources}}, $resource);
         return $resource;

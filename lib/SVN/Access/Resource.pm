@@ -15,6 +15,11 @@ sub new {
     my (%authorized, $t);
     $t = tie(%authorized, 'Tie::IxHash');
     
+    # turn hashref into arrayref up front
+    if (ref($attr{authorized}) eq "HASH") {
+        $attr{authorized} = [(%{$attr{authorized}})];
+    }
+    
     # make sure we copy in stuff that was passed.
     %authorized = (@{$attr{authorized}});
     

@@ -148,15 +148,28 @@ is(defined($acl->groups), '', "Making sure groups is undefined when we delete th
 # Aliases added at Trent Fisher's request, tested here...
 is($acl->aliases->{mikey}, 'uid=mgregorowicz,ou=people,dc=mg2,dc=org', "Does my alias still exist after round trip?");
 
-# use the name => notation...
+# use the name => notation... (this broke when we introduced Tie::IxHash, fixed in 0.11)
 $acl->add_resource(
     name => '/awesomeness',
     authorized => {
         mike => 'rw',
     }
 );
+
 # ... and make sure it was understood
 is($acl->resource('/awesomeness')->authorized->{mike}, 'rw', 'was hash param understood?');
+
+$acl->remove_resource('/awesomeness');
+
+# instantiate object with 'authorized' as hashref.
+my $resource = SVN::Access::Resource->new(name => '/awesomeness', 
+    authorized => {
+        mike => 'rw',
+    },
+);
+push(@{$acl->{acl}->{resources}}, $resource);
+
+is($acl->resource('/awesomeness')->authorized->{mike}, 'rw', 'sideloaded resource instantiated with hashref authorized');
 
 # Jesse Thompson's verify_acl tests
 $acl->add_resource('/new', '@doesntexist', 'rw');
@@ -374,17 +387,17 @@ is($#errs, 2, "Make sure we got the right number of verify errors");
 @errs = ();
 my @g = $acl->resolve('@one');
 is($#errs, 0, "One error from loop in group one");
-ok($errs[0] =~ /^Error: group loop detected \@one/);
+ok($errs[0] =~ /^Error: group loop detected \@one/, "sanity checking error string content");
 
 @errs = ();
 @g = $acl->resolve('@four');
 is($#errs, 0, "One error from loop in group four");
-ok($errs[0] =~ /^Error: group loop detected \@four/);
+ok($errs[0] =~ /^Error: group loop detected \@four/, "sanity checking error string content");
 
 @errs = ();
 @g = $acl->resolve('@direct');
 is($#errs, 0, "One error from loop in group direct");
-ok($errs[0] =~ /^Error: group loop detected \@direct/);
+ok($errs[0] =~ /^Error: group loop detected \@direct/, "sanity checking error string content");
 
 unlink('loop.conf');
 
